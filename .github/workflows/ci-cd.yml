@@ -1,0 +1,30 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+      - run: pip install -r backend/requirements.txt
+      - run: pytest backend/tests/ -v --cov=app
+
+  build-and-deploy:
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Build and push backend
+        run: |
+          docker build -t $ACR_LOGIN_SERVER/clinical-ai-backend:$GITHUB_SHA ./backend
+          docker push $ACR_LOGIN_SERVER/clinical-ai-backend:$GITHUB_SHA
+      - name: Deploy to AKS
+        run: |
+          kubectl set image deployment/clinical-ai-backend \
+            backend=$ACR_LOGIN_SERVER/clinical-ai-backend:$GITHUB_SHA
